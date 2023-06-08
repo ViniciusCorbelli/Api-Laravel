@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\MunicipioController;
+use App\Http\Controllers\ApiV1Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -15,4 +15,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/v1/municipios/{uf}', [MunicipioController::class, 'getByUf']);
+Route::prefix('/v1')->group(function() {
+    Route::get('/municipios/{uf}', [ApiV1Controller::class, 'getByUf']);
+});
