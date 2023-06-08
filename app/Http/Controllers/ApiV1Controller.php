@@ -3,10 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CollectionHelper;
-use ErrorException;
+use App\Http\Controllers\Provider\ProviderFactory;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
 
 class ApiV1Controller extends Controller
@@ -17,7 +16,7 @@ class ApiV1Controller extends Controller
 
     public function getByUf(Request $request) {
        try {
-            $response = $this->getByBrasilApi($request->route('uf'));
+            $response = $this->get($request->route('uf'));
 
             $paginated = CollectionHelper::paginate(collect($response), $request->query('perPage') ?? 20);
             return response()->json($paginated , 200, [], JSON_UNESCAPED_UNICODE);
@@ -29,27 +28,22 @@ class ApiV1Controller extends Controller
        }
     }
 
-    private function getByBrasilApi(string $uf) {
-        $response = Redis::get(self::KEY_CACHE_MUNICIPIO . $uf);
-        if (!empty($response)) {
-            return json_decode($response);
-        }
+    private function get(string $uf) {
+        try {
+            /*$response = Redis::get(self::KEY_CACHE_MUNICIPIO . $uf);
+            if (!empty($response)) {
+                return json_decode($response);
+            }*/
 
-        $municipios = Http::get(env('URL_API_BRASIL') . $uf);
+            $provider = ProviderFactory::obter(env('PROVIDER'));
+            $response = $provider->get($uf);
 
-        if(!($municipios->ok())) {
-            throw new Exception(self::NOT_FOUND);
-        }
+            Redis::set(self::KEY_CACHE_MUNICIPIO . $uf, json_encode($response, JSON_UNESCAPED_UNICODE));
 
-        $response = [];
-        foreach ($municipios->json() as $municipio) {
-            $response[] = [
-                'name' => ucfirst(mb_strtolower($municipio['nome'])),
-                'ibge_code' => $municipio['codigo_ibge']
-            ];
-        }
+            return $response;
 
-        Redis::set(self::KEY_CACHE_MUNICIPIO . $uf, json_encode($response, JSON_UNESCAPED_UNICODE));
-        return $response;
+        } catch (Exception $e) {
+            throw new Exception($e->getMessage());
+       }
     }
 }
