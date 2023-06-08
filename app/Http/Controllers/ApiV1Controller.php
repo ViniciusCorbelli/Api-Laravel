@@ -30,10 +30,10 @@ class ApiV1Controller extends Controller
 
     private function get(string $uf) {
         try {
-            /*$response = Redis::get(self::KEY_CACHE_MUNICIPIO . $uf);
+            $response = Redis::get(self::KEY_CACHE_MUNICIPIO . $uf);
             if (!empty($response)) {
                 return json_decode($response);
-            }*/
+            }
 
             $provider = ProviderFactory::obter(env('PROVIDER'));
             $response = $provider->get($uf);
