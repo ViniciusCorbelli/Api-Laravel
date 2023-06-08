@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CollectionHelper;
+use ErrorException;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
@@ -11,21 +13,32 @@ class ApiV1Controller extends Controller
 {
 
     const KEY_CACHE_MUNICIPIO = 'municipio_';
+    const NOT_FOUND = 'It was not possible to obtain the data of the municipalities.';
 
     public function getByUf(Request $request) {
-        $uf = $request->route('uf');
+       try {
+            $response = $this->getByBrasilApi($request->route('uf'));
 
+            $paginated = CollectionHelper::paginate(collect($response), $request->query('perPage') ?? 20);
+            return response()->json($paginated , 200, [], JSON_UNESCAPED_UNICODE);
+
+       } catch (Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], 404);
+       }
+    }
+
+    private function getByBrasilApi(string $uf) {
         $response = Redis::get(self::KEY_CACHE_MUNICIPIO . $uf);
         if (!empty($response)) {
-            return response()->json(json_decode($response), 200, [], JSON_UNESCAPED_UNICODE);
+            return json_decode($response);
         }
 
         $municipios = Http::get(env('URL_API_BRASIL') . $uf);
 
         if(!($municipios->ok())) {
-            return response()->json([
-                'error' => 'It was not possible to obtain the data of the municipalities.'
-            ], 404);
+            throw new Exception(self::NOT_FOUND);
         }
 
         $response = [];
@@ -37,8 +50,6 @@ class ApiV1Controller extends Controller
         }
 
         Redis::set(self::KEY_CACHE_MUNICIPIO . $uf, json_encode($response, JSON_UNESCAPED_UNICODE));
-
-        $paginated = CollectionHelper::paginate(collect($response), 20);
-        return response()->json($paginated , 200, [], JSON_UNESCAPED_UNICODE);
+        return $response;
     }
 }
